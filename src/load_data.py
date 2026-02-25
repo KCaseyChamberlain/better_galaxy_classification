@@ -15,8 +15,9 @@ from tqdm import tqdm
 
 LEDA_LOC = '../data/leda_raw.tsv'
 PROCESSED_DIR = '../data/'
-PROCESSED_NAME = 'cleaned_data_full.parquet'
+PROCESSED_NAME = 'data_full.parquet'
 LEDA_COLS = [
+        'PGC',
         '_RAJ2000',
         '_DEJ2000',
         'MType',
@@ -30,7 +31,6 @@ LEDA_COLS = [
 # import the raw HyperLEDA CSV #
 ################################
 
-# log progress
 print("Loading HyperLEDA data from file...")
 
 hrow = 48
@@ -48,8 +48,7 @@ leda_raw = pd.read_csv(
 # clean the data #
 ##################
 
-# log progress
-print("Cleaning HyperLEDA data...")
+print("Loading HyperLEDA data...")
 
 # make a new dataframe for cleaned data
 leda_cleaned = leda_raw.copy()
@@ -66,17 +65,15 @@ leda_cleaned.dropna(subset=['MType'], inplace=True)
 #         WHERE _DEJ2000 > 0
 # """)
 
-# convert coordinates to astropy objects
-leda_coords = SkyCoord(ra=leda_cleaned['_RAJ2000'], dec=leda_cleaned['_DEJ2000'], unit='deg')
-
 ################################
 # query SDSS for matching data #
 ################################
+# (or load preexisting)
 
-# log progress
-print("Loading SDSS data...")
+print("Attempting to locate saved SDSS data...")
 
 if not os.path.exists( os.path.join(PROCESSED_DIR, 'sdss_raw.parquet') ):
+    print("No saved SDSS data; loading SDSS data from servers...")
     qres = []
     rastep = 2
     for ra in tqdm(np.arange(0.,360.,rastep)):
@@ -93,17 +90,22 @@ if not os.path.exists( os.path.join(PROCESSED_DIR, 'sdss_raw.parquet') ):
     sdss_raw = pd.concat(qres, ignore_index=True)
     sdss_raw.to_parquet( os.path.join(PROCESSED_DIR, 'sdss_raw.parquet') )
 else:
+    print("Found saved SDSS data; loading from file...")
     sdss_raw = pd.read_parquet( os.path.join(PROCESSED_DIR, 'sdss_raw.parquet') )
-
-# convert coordinates to astropy objects
-sdss_cleaned = sdss_raw.copy()
-sdss_coords = SkyCoord(ra=tqdm(sdss_cleaned['ra']), dec=sdss_cleaned['dec'], unit='deg')
 
 #################################
 # match HyperLEDA & SDSS tables #
 #################################
 
-# log progress
+# convert coordinates to skycoord objects for easy matching 
+## HyperLEDA
+print("Converting HyperLEDA coordinates for matching")
+leda_coords = SkyCoord(ra=tqdm(leda_cleaned['_RAJ2000']), dec=leda_cleaned['_DEJ2000'], unit='deg')
+## SDSS
+print("Converting SDSS coordinates for matching")
+sdss_cleaned = sdss_raw.copy()
+sdss_coords = SkyCoord(ra=tqdm(sdss_cleaned['ra']), dec=tqdm(sdss_cleaned['dec']), unit='deg')
+
 print("Matching SDSS data to HyperLEDA data...")
 
 # get SDSS indices that match to LEDA objects
@@ -116,15 +118,13 @@ print(leda_cleaned['sidx'].value_counts())
 
 # join tables
 joined_cleaned = leda_cleaned.join(sdss_cleaned, on='sidx', how='left')
+print(joined_cleaned)
 
 ##################################
 # save the cleaned, matched data #
 ##################################
 
-# log progress
 print("Saving cleaned, matched data...")
-
-# TODO: remove skycoord object after matching
 
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 joined_cleaned.to_parquet( os.path.join(PROCESSED_DIR, PROCESSED_NAME) )
