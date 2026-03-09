@@ -11,15 +11,7 @@ DATA_DIR = '../data/'
 PROCESSED_NAME = 'data_full.parquet'
 MORPH_COLS = [
         'objID',
-        'Pdisk',
-        'Pedgeon',
-        'PbarGZ2',
-        'PbarNair10',
-        'Pmerg',
-        'Pbulge',
-        'Pcigar',
-        'TType',
-        'PS0'
+        'TType'
     ]
 
 #################################
@@ -44,14 +36,14 @@ morph_raw.set_index('objID')
 # import the raw SDSS data #
 ############################
 
-print("Loading SDSS data from file...")
-
 sdss_raw = pd.read_parquet( os.path.join(DATA_DIR, SDSS_LOC) )
 sdss_raw.set_index('objID')
 
 ##################################
 # match morphology & SDSS tables #
 ##################################
+
+print("Joining morphology and SDSS tables...")
 
 joined = morph_raw.join(sdss_raw, how='left', lsuffix='_morph', rsuffix='_sdss')
 
