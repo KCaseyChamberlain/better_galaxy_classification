@@ -45,7 +45,8 @@ sdss_raw.set_index('objID')
 
 print("Joining morphology and SDSS tables...")
 
-joined = morph_raw.join(sdss_raw, how='left', lsuffix='_morph', rsuffix='_sdss')
+joined = morph_raw.join(sdss_raw, on='objID', how='left', lsuffix='_morph', rsuffix='_sdss')
+print(joined[['objID','objID_morph','objID_sdss']])
 
 ########################
 # save the joined data #
