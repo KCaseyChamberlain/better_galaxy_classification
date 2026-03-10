@@ -10,7 +10,7 @@ DATA_DIR = '../data/'
 PROCESSED_NAME = 'data_full.parquet'
 PROCESSED_CLEANED_NAME = 'data_full_cleaned.parquet'
 FLOAT_COLS = [
-            'TType',
+            'T',
             'ra',
             'dec',
             'u',
@@ -23,6 +23,9 @@ FLOAT_COLS = [
             'petroR90_r'
         ]
 COLS_TO_DROP = [  # these columns are not physical, so they obviously will not relate to morphology
+            '_RAJ2000',
+            '_DEJ2000',
+            'sidx',
             'petroR50_r',
             'petroR90_r',
             'petroMag_r',
@@ -45,16 +48,15 @@ data = pd.read_parquet( os.path.join(DATA_DIR, PROCESSED_NAME) )
 
 print("Cleaning some features...")
 
-# rename objID column to something more reasonable
-data = data.rename(columns={'objID_morph': 'objID'})
-
 # drop any and all NaN
 data.dropna(inplace=True)
 
-# cast some columns as more reasonable types
-data['objID'] = data['objID'].astype(int)
+# cast some columns as float
 for col in FLOAT_COLS:
-    data[col] = data[col].astype(float)
+    data[col] = pd.to_numeric(data[col], errors="coerce")
+
+# drop NaN again (could have been whitespace before)
+data.dropna(inplace=True)
 
 ########################
 # derive some features #
