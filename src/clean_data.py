@@ -39,6 +39,20 @@ COLS_TO_DROP = [  # these columns are not physical, so they obviously will not r
             'z'
         ]
 OUT_COLS = ['T', 'ug_color', 'ur_color', 'ui_color', 'uz_color', 'gr_color', 'gi_color', 'gz_color', 'ri_color', 'rz_color', 'iz_color', 'sb50_r', 'sb_conc_r']
+POSTGRES_TABLE_IMPUTED = 'galaxy_data_cleaned_impute'
+POSTGRES_TABLE_NOIMPUTE = 'galaxy_data_cleaned_noimpute'
+
+def write_df_to_postgres(df, table_name):
+    db_url = os.getenv("DATABASE_URL")
+
+    if not db_url:
+        print("DATABASE_URL not set, skipping Postgres export.")
+        return
+
+    print(f"Writing {len(df)} rows to Postgres table '{table_name}'...")
+    engine = create_engine(db_url)
+    df.to_sql(table_name, engine, if_exists='replace', index=False)
+    print(f"Finished writing table '{table_name}'.")
 
 ###############
 # import data #
@@ -120,11 +134,14 @@ data = data.drop(columns=COLS_TO_DROP)
 # save cleaned imputed table #
 ##############################
 
-data.to_parquet( os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME_IMPUTED) )
+data_imputed = data.copy()
+data_imputed.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME_IMPUTED))
+write_df_to_postgres(data_imputed, POSTGRES_TABLE_IMPUTED)
 
 ######################
 # save cleaned table #
 ######################
 
-data = data[ data['imputed_brightness']==0 ]
-data.to_parquet( os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME) )
+data_noimpute = data_imputed[data_imputed['imputed_brightness'] == 0].copy()
+data_noimpute.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME))
+write_df_to_postgres(data_noimpute, POSTGRES_TABLE_NOIMPUTE)
