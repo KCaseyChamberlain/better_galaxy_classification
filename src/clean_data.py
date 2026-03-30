@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.impute import KNNImputer
+from sqlalchemy import create_engine
 
 #################
 # set constants #
