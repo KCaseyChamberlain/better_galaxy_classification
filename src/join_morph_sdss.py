@@ -64,6 +64,8 @@ devac_raw = devac_raw.rename(columns={
     '_DEJ2000': 'dec_devac',
     'T': 'T_devac'
 })
+## drop any that don't have coordinates
+devac_raw.dropna(subset=['ra_devac','dec_devac'], inplace=True)
 
 # LEDA
 try:
@@ -96,6 +98,9 @@ try:
     sdss_raw = pd.read_parquet( os.path.join(DATA_DIR, SDSS_LOC) )
 except FileNotFoundError:
     print("SDSS data not found. Please run the appropriate script to create this file.")
+
+# drop any that don't have coordinates
+sdss_raw.dropna(subset=['ra','dec'], inplace=True)
 
 ##################################
 # match morphology & SDSS tables #

@@ -13,8 +13,7 @@ DATA_DIR = '../data/'
 # where is the processed/uncleaned data from the other script stored?
 PROCESSED_NAME = 'data_full.parquet'
 # where to store our cleaned data from this script?
-PROCESSED_CLEANED_NAME = 'data_full_cleaned_noimpute.parquet'
-PROCESSED_CLEANED_NAME_IMPUTED = 'data_full_cleaned_impute.parquet'
+PROCESSED_CLEANED_NAME = 'data_full_cleaned.parquet'
 # columns that should be of type float
 FLOAT_COLS = [
             'T',
@@ -60,9 +59,8 @@ COLS_TO_DROP = [  # these columns are not physical, so they obviously will not r
 OUT_COLS = ['T', 'ug_color', 'ur_color', 'ui_color', 'uz_color', 'gr_color', 'gi_color', 'gz_color', 'ri_color', 'rz_color', 'iz_color', 'sb50_r', 'sb_conc_r']
 # which columns to impute the data?
 COLS_TO_IMPUTE = ['logdc','bri25','mabs']
-# table names for PostgreSQL
-POSTGRES_TABLE_IMPUTED = 'galaxy_data_cleaned_impute'
-POSTGRES_TABLE_NOIMPUTE = 'galaxy_data_cleaned_noimpute'
+# table name for PostgreSQL
+POSTGRES_TABLE = 'galaxy_data_cleaned'
 
 def write_df_to_postgres(df, table_name):
     db_url = os.getenv("DATABASE_URL")
@@ -138,9 +136,8 @@ data['morphology'] = spel
 print("Removing outliers...")
 
 for cc in OUT_COLS:
-    nonan = np.array(data[cc])[~np.isnan(np.array(data[cc]))]
-    fq = np.quantile(nonan, 0.25)
-    tq = np.quantile(nonan, 0.75)
+    fq = np.nanquantile(np.array(data[cc]), 0.25)
+    tq = np.nanquantile(np.array(data[cc]), 0.75)
     iqr = tq - fq
     ubound = tq + 1.5*iqr
     lbound = fq - 1.5*iqr
@@ -159,9 +156,6 @@ data = data.drop(columns=COLS_TO_DROP)
 
 print("Imputing some of the features...")
 
-# make a new table with the imputed data
-data_imputed = data.copy()
-
 # mark which columns have imputed values
 for cc in COLS_TO_IMPUTE:
     data['imputed_'+cc] = data[cc].isna().astype(int)
@@ -170,18 +164,11 @@ for cc in COLS_TO_IMPUTE:
 imputer = KNNImputer(n_neighbors=50, weights='uniform')
 data[COLS_TO_IMPUTE] = imputer.fit_transform(data[COLS_TO_IMPUTE])
 
-##############################
-# save cleaned imputed table #
-##############################
-
-print("Saving final cleaned data...")
-
-data_imputed.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME_IMPUTED))
-write_df_to_postgres(data_imputed, POSTGRES_TABLE_IMPUTED)
-
 ######################
 # save cleaned table #
 ######################
 
+print("Saving final cleaned data...")
+
 data.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME))
-write_df_to_postgres(data, POSTGRES_TABLE_NOIMPUTE)
+write_df_to_postgres(data, POSTGRES_TABLE)
