@@ -9,16 +9,21 @@ from tqdm import tqdm
 # set constants #
 #################
 
+# file locations
 DEVAC_LOC = 'devac_raw.tsv'
 LEDA_LOC = 'leda_raw.tsv'
 SDSS_LOC = 'sdss_raw.parquet'
+# data directory
 DATA_DIR = '../data/'
+# where to put the processed data from this script?
 PROCESSED_NAME = 'data_full.parquet'
+# columns to include from the de Vaucouleurs dataset
 DEVAC_COLS = [
         '_RAJ2000',
         '_DEJ2000',
         'T'
     ]
+# columns/indices to include from the HyperLEDA dataset
 LEDA_COL_IDX = [0,2,5,6,17,40,41,42,44,46,58,63,80]
 LEDA_COL_NAMES = [  # it's hard to read these from the data file so we define manually
         'objname',
@@ -61,13 +66,16 @@ devac_raw = devac_raw.rename(columns={
 })
 
 # LEDA
-leda_raw = pd.read_csv(
-        os.path.join(DATA_DIR, LEDA_LOC),
-        sep='\t',
-        usecols=LEDA_COL_IDX,
-        names=LEDA_COL_NAMES,
-        skiprows=89
-    )
+try:
+    leda_raw = pd.read_csv(
+            os.path.join(DATA_DIR, LEDA_LOC),
+            sep='\t',
+            usecols=LEDA_COL_IDX,
+            names=LEDA_COL_NAMES,
+            skiprows=89
+        )
+except FileNotFoundError:
+    print("LEDA data not found. Please download this as outlined in the README.")
 ## perform some initial rudimentary cleaning on LEDA data
 ### normalize objtype
 leda_raw['objtype'] = leda_raw['objtype'].map(lambda ss: str(ss))
@@ -84,7 +92,10 @@ leda_raw['ra_leda'] = leda_raw['ra_leda']*15.0
 # import the raw SDSS data #
 ############################
 
-sdss_raw = pd.read_parquet( os.path.join(DATA_DIR, SDSS_LOC) )
+try:
+    sdss_raw = pd.read_parquet( os.path.join(DATA_DIR, SDSS_LOC) )
+except FileNotFoundError:
+    print("SDSS data not found. Please run the appropriate script to create this file.")
 
 ##################################
 # match morphology & SDSS tables #
@@ -106,20 +117,25 @@ print("Matching SDSS data to de Vaucouleurs data...")
 # get LEDA & de Vaucouleurs indices that match to SDSS objects
 leda_idx, leda_dist, _ = sdss_coords.match_to_catalog_sky(leda_coords)
 devac_idx, devac_dist, _ = sdss_coords.match_to_catalog_sky(devac_coords)
+
+# filter for only close matches
 for ii in range(len(leda_idx)):
     if leda_dist[ii] > Angle(5., unit=u.arcsec):
         leda_idx[ii] = int(9e15)
 for ii in range(len(devac_idx)):
     if devac_dist[ii] > Angle(5., unit=u.arcsec):
         devac_idx[ii] = int(9e15)
+
+# prepare tables for joining
 sdss_raw['leda_idx'] = leda_idx
 sdss_raw['devac_idx'] = devac_idx
 
 # join tables
 joined = sdss_raw.join(leda_raw, on='leda_idx', how='left', lsuffix='1', rsuffix='2')
 joined = joined.join(devac_raw, on='devac_idx', how='left', lsuffix='3', rsuffix='4')
+# reject rows that don't have a match in either LEDA or de Vaucouleurs
+# (this effectively makes it so the previous left joins become an inner join from SDSS to de Vaucouleurs/LEDA at the same time)
 joined = joined[~(joined['ra_devac'].isna() & joined['ra_leda'].isna())]
-print(joined)
 
 ########################
 # save the joined data #

@@ -8,10 +8,14 @@ from sqlalchemy import create_engine
 # set constants #
 #################
 
+# data directory
 DATA_DIR = '../data/'
+# where is the processed/uncleaned data from the other script stored?
 PROCESSED_NAME = 'data_full.parquet'
+# where to store our cleaned data from this script?
 PROCESSED_CLEANED_NAME = 'data_full_cleaned_noimpute.parquet'
 PROCESSED_CLEANED_NAME_IMPUTED = 'data_full_cleaned_impute.parquet'
+# columns that should be of type float
 FLOAT_COLS = [
             'T',
             'ra',
@@ -23,22 +27,40 @@ FLOAT_COLS = [
             'z',
             'petroMag_r',
             'petroR50_r',
-            'petroR90_r'
+            'petroR90_r',
+            'logdc',
+            'bri25',
+            'mabs'
         ]
+# which columns to drop when we are done?
 COLS_TO_DROP = [  # these columns are not physical, so they obviously will not relate to morphology
-            '_RAJ2000',
-            '_DEJ2000',
-            'sidx',
+            'objID',
+            'ra_leda',
+            'dec_leda',
+            'ra_devac',
+            'dec_devac',
+            'leda_idx',
+            'devac_idx',
+            'objtype',
             'petroR50_r',
             'petroR90_r',
             'petroMag_r',
+            'ub_color',
+            'bv_color',
+            'vmaxg',
+            'vmaxs',
+            'vdis',
             'u',
             'g',
             'r',
             'i',
             'z'
         ]
+# which columns to exclude outliers?
 OUT_COLS = ['T', 'ug_color', 'ur_color', 'ui_color', 'uz_color', 'gr_color', 'gi_color', 'gz_color', 'ri_color', 'rz_color', 'iz_color', 'sb50_r', 'sb_conc_r']
+# which columns to impute the data?
+COLS_TO_IMPUTE = ['logdc','bri25','mabs']
+# table names for PostgreSQL
 POSTGRES_TABLE_IMPUTED = 'galaxy_data_cleaned_impute'
 POSTGRES_TABLE_NOIMPUTE = 'galaxy_data_cleaned_noimpute'
 
@@ -60,6 +82,15 @@ def write_df_to_postgres(df, table_name):
 
 data = pd.read_parquet( os.path.join(DATA_DIR, PROCESSED_NAME) )
 
+####################################
+# combine morphology label columns #
+####################################
+
+data['T_devac'] = pd.to_numeric(data['T_devac'], errors="coerce")
+data['T'] = data[['T_leda','T_devac']].mean(axis=1)
+data.drop(['T_devac','T_leda'],axis=1,inplace=True)
+data.dropna(subset=['T'], inplace=True)
+
 ##############################
 # cast some columns as float #
 ##############################
@@ -68,16 +99,6 @@ print("Cleaning the data...")
 
 for col in FLOAT_COLS:
     data[col] = pd.to_numeric(data[col], errors="coerce")
-
-###################
-# data imputation #
-###################
-
-COLS_TO_IMPUTE = ['T', 'u', 'g', 'r', 'i', 'z', 'petroMag_r', 'petroR50_r', 'petroR90_r']
-
-data['imputed_brightness'] = data['z'].isna().astype(int)
-imputer = KNNImputer(n_neighbors=50, weights='uniform')
-data[COLS_TO_IMPUTE] = imputer.fit_transform(data[COLS_TO_IMPUTE])
 
 ########################
 # derive some features #
@@ -114,6 +135,8 @@ data['morphology'] = spel
 # remove outliers #
 ###################
 
+print("Removing outliers...")
+
 for cc in OUT_COLS:
     nonan = np.array(data[cc])[~np.isnan(np.array(data[cc]))]
     fq = np.quantile(nonan, 0.25)
@@ -130,11 +153,29 @@ for cc in OUT_COLS:
 
 data = data.drop(columns=COLS_TO_DROP)
 
+########################
+# impute some features #
+########################
+
+print("Imputing some of the features...")
+
+# make a new table with the imputed data
+data_imputed = data.copy()
+
+# mark which columns have imputed values
+for cc in COLS_TO_IMPUTE:
+    data['imputed_'+cc] = data[cc].isna().astype(int)
+
+# impute
+imputer = KNNImputer(n_neighbors=50, weights='uniform')
+data[COLS_TO_IMPUTE] = imputer.fit_transform(data[COLS_TO_IMPUTE])
+
 ##############################
 # save cleaned imputed table #
 ##############################
 
-data_imputed = data.copy()
+print("Saving final cleaned data...")
+
 data_imputed.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME_IMPUTED))
 write_df_to_postgres(data_imputed, POSTGRES_TABLE_IMPUTED)
 
@@ -142,6 +183,5 @@ write_df_to_postgres(data_imputed, POSTGRES_TABLE_IMPUTED)
 # save cleaned table #
 ######################
 
-data_noimpute = data_imputed[data_imputed['imputed_brightness'] == 0].copy()
-data_noimpute.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME))
-write_df_to_postgres(data_noimpute, POSTGRES_TABLE_NOIMPUTE)
+data.to_parquet(os.path.join(DATA_DIR, PROCESSED_CLEANED_NAME))
+write_df_to_postgres(data, POSTGRES_TABLE_NOIMPUTE)
