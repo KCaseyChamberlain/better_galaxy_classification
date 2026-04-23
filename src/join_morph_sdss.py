@@ -9,32 +9,76 @@ from tqdm import tqdm
 # set constants #
 #################
 
-MORPH_LOC = 'devac_raw.tsv'
+DEVAC_LOC = 'devac_raw.tsv'
+LEDA_LOC = 'leda_raw.tsv'
 SDSS_LOC = 'sdss_raw.parquet'
 DATA_DIR = '../data/'
 PROCESSED_NAME = 'data_full.parquet'
-MORPH_COLS = [
+DEVAC_COLS = [
         '_RAJ2000',
         '_DEJ2000',
         'T'
+    ]
+LEDA_COL_IDX = [0,2,5,6,17,40,41,42,44,46,58,63,80]
+LEDA_COL_NAMES = [  # it's hard to read these from the data file so we define manually
+        'objname',
+        'objtype',
+        'ra_leda',
+        'dec_leda',
+        'T_leda',
+        'ub_color',
+        'bv_color',
+        'vmaxg',
+        'vmaxs',
+        'vdis',
+        'logdc',
+        'bri25',
+        'mabs'
     ]
 
 #################################
 # import the raw morphology CSV #
 #################################
 
-print("Loading morphology data from file...")
+print("Loading morphology data from files...")
 
+# de Vaucouleurs
 hrow = 94
-morph_raw = pd.read_csv(
-        os.path.join(DATA_DIR, MORPH_LOC),
+devac_raw = pd.read_csv(
+        os.path.join(DATA_DIR, DEVAC_LOC),
         sep='|',
         header=hrow-2,
         skiprows=[hrow,hrow+1],
-        usecols=MORPH_COLS,
+        usecols=DEVAC_COLS,
         skipfooter=13,
         engine='python'
     )
+## rename some columns to avoid conflict
+devac_raw = devac_raw.rename(columns={
+    '_RAJ2000' : 'ra_devac',
+    '_DEJ2000': 'dec_devac',
+    'T': 'T_devac'
+})
+
+# LEDA
+leda_raw = pd.read_csv(
+        os.path.join(DATA_DIR, LEDA_LOC),
+        sep='\t',
+        usecols=LEDA_COL_IDX,
+        names=LEDA_COL_NAMES,
+        skiprows=89
+    )
+## perform some initial rudimentary cleaning on LEDA data
+### normalize objtype
+leda_raw['objtype'] = leda_raw['objtype'].map(lambda ss: str(ss))
+leda_raw['objtype'] = leda_raw['objtype'].map(lambda ss: ss.replace(" ",""))
+leda_raw['objtype'] = leda_raw['objtype'].str.lower()
+### select for only galaxies
+leda_raw = leda_raw[leda_raw['objtype']=='g']
+### drop any that don't have coordinates
+leda_raw.dropna(subset=['ra_leda','dec_leda'], inplace=True)
+### convert coordinates from hour angle to degree (for consistency)
+leda_raw['ra_leda'] = leda_raw['ra_leda']*15.0
 
 ############################
 # import the raw SDSS data #
@@ -48,23 +92,34 @@ sdss_raw = pd.read_parquet( os.path.join(DATA_DIR, SDSS_LOC) )
 
 # convert coordinates to skycoord objects for easy matching 
 ## de Vaucouleurs
-print("Converting de Vaucouleurs coordinates for matching")
-devac_coords = SkyCoord(ra=tqdm(morph_raw['_RAJ2000']), dec=morph_raw['_DEJ2000'], unit='deg')
+print("Converting de Vaucouleurs coordinates for matching...")
+devac_coords = SkyCoord(ra=tqdm(devac_raw['ra_devac'],desc="ra"), dec=tqdm(devac_raw['dec_devac'],desc="dec"), unit='deg')
+## LEDA
+print("Converting LEDA coordinates for matching...")
+leda_coords = SkyCoord(ra=tqdm(leda_raw['ra_leda'],desc="ra"), dec=tqdm(leda_raw['dec_leda'],desc="dec"), unit='deg')
 ## SDSS
-print("Converting SDSS coordinates for matching")
-sdss_coords = SkyCoord(ra=tqdm(sdss_raw['ra']), dec=tqdm(sdss_raw['dec']), unit='deg')
+print("Converting SDSS coordinates for matching...")
+sdss_coords = SkyCoord(ra=tqdm(sdss_raw['ra'],desc="ra"), dec=tqdm(sdss_raw['dec'],desc="dec"), unit='deg')
 
 print("Matching SDSS data to de Vaucouleurs data...")
 
-# get SDSS indices that match to de Vaucouleurs objects
-sidx, dist, _ = devac_coords.match_to_catalog_sky(sdss_coords)
-for ii in range(len(sidx)):
-    if dist[ii] > Angle(5., unit=u.arcsec):
-        sidx[ii] = -1
-morph_raw['sidx'] = sidx
+# get LEDA & de Vaucouleurs indices that match to SDSS objects
+leda_idx, leda_dist, _ = sdss_coords.match_to_catalog_sky(leda_coords)
+devac_idx, devac_dist, _ = sdss_coords.match_to_catalog_sky(devac_coords)
+for ii in range(len(leda_idx)):
+    if leda_dist[ii] > Angle(5., unit=u.arcsec):
+        leda_idx[ii] = int(9e15)
+for ii in range(len(devac_idx)):
+    if devac_dist[ii] > Angle(5., unit=u.arcsec):
+        devac_idx[ii] = int(9e15)
+sdss_raw['leda_idx'] = leda_idx
+sdss_raw['devac_idx'] = devac_idx
 
 # join tables
-joined = morph_raw.join(sdss_raw, on='sidx', how='left')
+joined = sdss_raw.join(leda_raw, on='leda_idx', how='left', lsuffix='1', rsuffix='2')
+joined = joined.join(devac_raw, on='devac_idx', how='left', lsuffix='3', rsuffix='4')
+joined = joined[~(joined['ra_devac'].isna() & joined['ra_leda'].isna())]
+print(joined)
 
 ########################
 # save the joined data #

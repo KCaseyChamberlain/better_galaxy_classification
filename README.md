@@ -3,9 +3,10 @@
 
 
 ## Getting started
-To download, join, and clean the data all in one go, you can run clean_and_load_data.sh. It might take a few minutes.
+If you've just downloaded this codebase, the first step is to gather the data (it is not fully located in the repository since it's too big). Please see the following steps to collect the data:
 
-I store the data in 'parquet' files which are just like self-containd databases that can be read by pandas. You can see how to read the data in the sample_vis.ipynb notebook.
+1. Download the raw HyperLEDA data from this drive link and put it (do not alter the filename) in the `data/` directory in this repository.
+2. Run `clean_and_load_data.sh`. This will take a few minutes. It runs a few python scripts to gather raw data from the SDSS servers, match this to the HyperLEDA and de Vaucouleurs data, then clean the data.
 
 ## Optional PostgreSQL export
 
@@ -20,7 +21,7 @@ export DATABASE_URL='postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432
 ```
 
 ## Features
-Here are what the features of the cleaned dataset mean:
+Description of features in the cleaned dataset:
 - objID: SDSS identifier
 - TType: number relating to galaxy morphology (more negative means more elliptical, more positive means more spiral)
 - ra, dec: galaxy sky coordinates (stands for right ascension and declination, just to know where the galaxy is located in the sky)

@@ -24,3 +24,6 @@ Thumbs.db
 
 # Generated data
 *.parquet
+
+# Data that's too big
+leda_raw.tsv
