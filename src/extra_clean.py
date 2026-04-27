@@ -48,6 +48,15 @@ data = pd.read_parquet(os.path.join(DATA_DIR, DATA_NAME))
 # make magnitude cut
 data = data[data['r']<17.]
 
+# clean up around the edges
+data = data[data['mabs']<-16.]
+data = data[data['ur_color']<3.3]
+data = data[data['ur_color']>1.5]
+data = data[data['sb50_r']<22.]
+data = data[data['sb50_r']>19.]
+data = data[data['sb_conc_r']<3.5]
+data = data[data['logdc']<1.]
+
 #############
 # save data #
 #############
