@@ -33,3 +33,67 @@ export DATABASE_URL='postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432
 - `mabs`: the intrinsic brightness (a.k.a., absolute magnitude) of the galaxy as a whole. This could be a good feature for ML. Note that this number is the inverse of how you would expect it: higher numbers are fainter (e.g., magnitude 20 is fainter than magnitude 15).
 - `\*\_color`: in general, color is quantified by taking the difference in galaxy brightness between two filters. The SDSS filters are called "u", "g", "r", "i", and "z". So all these colors are just the difference between two filters. It is always the redder filter minus the bluer filter, so a more positive number means redder, and more negative number means bluer. These could be good features for ML, and some colors might have more predictive power than others.
 - `imputed_\*\`: a 1 indicates that the column on that row was imputed. A 0 means it is actual data.
+
+## Setup and Run
+
+### Prerequisites
+
+Install the following:
+
+- Anaconda or Miniconda
+- Docker
+- PostgreSQL
+
+### Download Required Data
+
+Download the raw HyperLEDA data from the Google Drive link above and place it in the `data/` directory.
+
+Do not rename the file.
+
+Expected location:
+
+```text
+data/leda_raw.tsv
+```
+
+### Create Environment
+
+```bash
+conda env create -f environment.yml
+conda activate cs_galaxies
+```
+
+### Run Data Pipeline
+
+```bash
+cd src
+python get_sdss_data.py
+python join_morph_sdss.py
+python clean_data.py
+cd ..
+```
+
+### Run Model Evaluation
+
+```bash
+cd src
+python evaluate_models.py
+cd ..
+```
+
+### Results
+
+Model evaluation outputs are saved in:
+
+```text
+results/
+```
+
+Expected outputs:
+
+```text
+results/model_comparison_results.csv
+results/logistic_regression_confusion_matrix.png
+results/gradient_boosting_confusion_matrix.png
+results/model_metric_comparison.png
+```
