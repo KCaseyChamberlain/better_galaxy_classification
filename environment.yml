@@ -11,6 +11,6 @@ dependencies:
   - astropy
   - fastparquet
   - astroquery
-  - sklearn
+  - scikit-learn
   - sqlalchemy # db interface
   - psycopg2 # posgreSQL driver
