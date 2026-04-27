@@ -154,6 +154,19 @@ def main():
     print("\n===== Model Comparison =====")
     print(results_df.to_string(index=False))
 
+    best_model = results_df.iloc[0]
+
+    print("\n===== Best Model =====")
+    print(f"Best model by F1 score: {best_model['model']}")
+    print(f"F1 score: {best_model['f1']:.4f}")
+    print(f"Accuracy: {best_model['accuracy']:.4f}")
+    print(f"Balanced accuracy: {best_model['balanced_accuracy']:.4f}")
+    print(f"RMSE: {best_model['rmse']:.4f}")
+
+    os.makedirs("../results", exist_ok=True)
+    results_df.to_csv("../results/model_comparison_results.csv", index=False)
+    print("\nSaved model comparison results to ../results/model_comparison_results.csv")
+
 
 if __name__ == "__main__":
     main()
