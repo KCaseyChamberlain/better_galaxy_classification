@@ -19,6 +19,25 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
 
+# -----------------------------------------------------------------------------
+# Supervised model evaluation pipeline.
+
+# This file contains the supervised classification models used to predict
+# galaxy morphology from the cleaned tabular feature set.
+
+# Models included in this file:
+# - Logistic Regression baseline
+# - Gradient Boosting classifier
+# - KNN elbow method for selecting k
+# - Optimized KNN classifier
+# - Weighted KNN classifier
+# - Random Forest classifier
+
+# This file also owns the shared evaluation logic for supervised models,
+# including train/test splitting, feature scaling where needed, RMSE,
+# accuracy, balanced accuracy, precision, recall, F1 score, confusion
+# matrix output, and final best-model selection.
+# -----------------------------------------------------------------------------
 
 DATA_DIR = "../data/"
 DATA_FILE = "data_full_cleaned.parquet"
