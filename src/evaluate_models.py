@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import ConfusionMatrixDisplay
 
 # -----------------------------------------------------------------------------
@@ -183,6 +183,11 @@ def main():
         ),
         "Gradient Boosting": GradientBoostingClassifier(
             random_state=RANDOM_STATE
+        ),
+        "Random Forest": RandomForestClassifier(
+            n_estimators=100,
+            random_state=RANDOM_STATE,
+            class_weight="balanced",
         ),
     }
 
