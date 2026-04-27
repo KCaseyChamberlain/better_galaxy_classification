@@ -51,7 +51,6 @@ COLS_TO_DROP = [  # these columns are not physical, so they obviously will not r
             'vdis',
             'u',
             'g',
-            'r',
             'i',
             'z'
         ]
