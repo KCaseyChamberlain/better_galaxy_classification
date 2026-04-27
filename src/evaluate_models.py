@@ -124,6 +124,33 @@ def evaluate_model(model_name, model, X_test, y_test):
 
     return results
 
+def save_metric_comparison_plot(results_df):
+    metrics_to_plot = [
+        "accuracy",
+        "balanced_accuracy",
+        "precision",
+        "recall",
+        "f1",
+    ]
+
+    plot_df = results_df[["model"] + metrics_to_plot].set_index("model")
+
+    os.makedirs("../results", exist_ok=True)
+
+    ax = plot_df.plot(kind="bar", figsize=(10, 6))
+    ax.set_title("Model Metric Comparison")
+    ax.set_xlabel("Model")
+    ax.set_ylabel("Score")
+    ax.set_ylim(0, 1)
+    plt.xticks(rotation=0)
+    plt.legend(title="Metric")
+    plt.tight_layout()
+
+    plot_path = "../results/model_metric_comparison.png"
+    plt.savefig(plot_path, bbox_inches="tight")
+    plt.close()
+
+    print(f"Saved metric comparison plot to {plot_path}")    
 
 def main():
     X, y = load_data()
@@ -185,6 +212,8 @@ def main():
     os.makedirs("../results", exist_ok=True)
     results_df.to_csv("../results/model_comparison_results.csv", index=False)
     print("\nSaved model comparison results to ../results/model_comparison_results.csv")
+
+    save_metric_comparison_plot(results_df)
 
 
 if __name__ == "__main__":
