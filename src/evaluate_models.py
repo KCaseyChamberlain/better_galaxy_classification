@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from sklearn.metrics import (
     accuracy_score,
@@ -18,6 +19,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import ConfusionMatrixDisplay
 
 # -----------------------------------------------------------------------------
 # Supervised model evaluation pipeline.
@@ -102,6 +104,23 @@ def evaluate_model(model_name, model, X_test, y_test):
     print(confusion_matrix(y_test, predictions))
     print("\nClassification report:")
     print(classification_report(y_test, predictions))
+
+    os.makedirs("../results", exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ConfusionMatrixDisplay.from_predictions(
+        y_test,
+        predictions,
+        ax=ax,
+    )
+    ax.set_title(f"{model_name} Confusion Matrix")
+
+    safe_name = model_name.lower().replace(" ", "_")
+    plot_path = f"../results/{safe_name}_confusion_matrix.png"
+    plt.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+
+    print(f"Saved confusion matrix plot to {plot_path}")
 
     return results
 
