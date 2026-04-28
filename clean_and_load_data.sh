@@ -1,5 +1,9 @@
+#!/bin/bash
+
 cd src
-python3 get_sdss_data.py
-python3 join_morph_sdss.py
-python3 clean_data.py
+python get_sdss_data.py
+python join_morph_sdss.py
+python clean_data.py
+python evaluate_models.py
+python cluster_analysis.py
 cd ..

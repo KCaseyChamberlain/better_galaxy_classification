@@ -1,52 +1,28 @@
 # Better Galaxy Classification Using ML
 
-
-
-## Getting started
-If you've just downloaded this codebase, the first step is to gather the data (it is not fully located in the repository since it's too big). Please see the following steps to collect the data:
-
-1. Download the raw HyperLEDA data from [this](https://drive.google.com/file/d/1AefO001XVp6XCR9nvx0bXuXvkaR-xSpI/view?usp=sharing) drive link and put it (do not alter the filename) in the `data/` directory in this repository.
-2. Run `clean_and_load_data.sh`. This will take up to an hour depending on how responsive the SDSS servers are. It runs a few python scripts to gather raw data from the SDSS servers, match this to the HyperLEDA and de Vaucouleurs data, then clean the data.
-
-These steps will put a file called `data_full_cleaned_noimpute.parquet` (or `galaxy_data_cleaned_noimpute` in Postgres) into a parquet file in the `data/` folder or into the Postgres database (see below). This is the cleaned dataset to be used. (There are some other intermediate files also dumped into the `data/` directory.)
-
-### Optional PostgreSQL export
-
-By default, this project writes cleaned outputs to parquet files in the `data/` directory.
-
-If you have PostgreSQL installed locally, `clean_data.py` can also write the cleaned datasets to PostgreSQL as tables. This is optional and is only used when a database connection is provided.
-
-Before running `clean_data.py`, set a `DATABASE_URL` environment variable with your local PostgreSQL connection string. For a default local PostgreSQL setup, it will usually look like this:
-
-```bash
-export DATABASE_URL='postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/postgres'
-```
-
-## Description of features in the dataset
-- `objname`: name of the galaxy, if any (probably just a catalog name in most cases)
-- `T`: number relating to galaxy morphology (more negative means more elliptical, more positive means more spiral). This is the thing we are trying to predict.
-- `ra`, `dec`: galaxy sky coordinates (stands for right ascension and declination, just to know where the galaxy is located in the sky). Not useful for our model, but just in case we want to know where an object is on the sky.
-- `sb50_r`: mean surface brightness in the central part of the galaxy. Surface brightness is basically a "brightness density." This could be a good feature for ML.
-- `sb_conc_r`: surface brightness concentration. A higher number means the light is more evenly spread across the galaxy, while a lower number means it is more concentrated in the center. This could be a good feature for ML.
-- `logdc`: (log) central surface brightness. This could be a good feature for ML.
-- `bri25`: the surface brightness along the outer edge of the galaxy. This could be a good feature for ML.
-- `mabs`: the intrinsic brightness (a.k.a., absolute magnitude) of the galaxy as a whole. This could be a good feature for ML. Note that this number is the inverse of how you would expect it: higher numbers are fainter (e.g., magnitude 20 is fainter than magnitude 15).
-- `\*\_color`: in general, color is quantified by taking the difference in galaxy brightness between two filters. The SDSS filters are called "u", "g", "r", "i", and "z". So all these colors are just the difference between two filters. It is always the redder filter minus the bluer filter, so a more positive number means redder, and more negative number means bluer. These could be good features for ML, and some colors might have more predictive power than others.
-- `imputed_\*\`: a 1 indicates that the column on that row was imputed. A 0 means it is actual data.
+This project uses modern galaxy measurements from the Sloan Digital Sky Survey (SDSS) and legacy morphology data from HyperLEDA / de Vaucouleurs catalogs to classify galaxy morphology. The pipeline downloads SDSS data, joins it with morphology catalogs by sky coordinate, cleans and engineers features, exports the cleaned dataset, and runs supervised and unsupervised model analysis.
 
 ## Setup and Run
 
 ### Prerequisites
 
-Install the following:
+Install the following before running the project:
 
 - Anaconda or Miniconda
-- Docker
 - PostgreSQL
+- Docker, optional depending on local setup
 
-### Download Required Data
+### 1. Download Required Data
 
-Download the raw HyperLEDA data from the Google Drive link above and place it in the `data/` directory.
+The raw HyperLEDA data is too large to store directly in this repository.
+
+Download the raw HyperLEDA data from this Google Drive link:
+
+```text
+https://drive.google.com/file/d/1AefO001XVp6XCR9nvx0bXuXvkaR-xSpI/view?usp=sharing
+```
+
+Place the file in the `data/` directory.
 
 Do not rename the file.
 
@@ -56,44 +32,199 @@ Expected location:
 data/leda_raw.tsv
 ```
 
-### Create Environment
+### 2. Create and Activate the Conda Environment
 
 ```bash
 conda env create -f environment.yml
 conda activate cs_galaxies
 ```
 
-### Run Data Pipeline
+If the environment already exists and you need to update it:
+
+```bash
+conda env update -f environment.yml --prune
+conda activate cs_galaxies
+```
+
+### 3. Run the Full Pipeline
+
+From the project root, run:
+
+```bash
+bash clean_and_load_data.sh
+```
+
+This runs the full project pipeline in order:
+
+```text
+get_sdss_data.py       -> downloads or reuses SDSS raw data
+join_morph_sdss.py     -> joins SDSS with HyperLEDA / de Vaucouleurs data
+clean_data.py          -> cleans data, engineers features, saves parquet, exports to PostgreSQL
+evaluate_models.py     -> runs supervised model evaluation
+cluster_analysis.py    -> runs unsupervised K-Means / PCA analysis
+```
+
+If you want to run the steps manually instead:
 
 ```bash
 cd src
 python get_sdss_data.py
 python join_morph_sdss.py
 python clean_data.py
+python evaluate_models.py
+python cluster_analysis.py
 cd ..
 ```
 
-### Run Model Evaluation
+### 4. Expected Data Outputs
+
+The main cleaned dataset is saved as:
+
+```text
+data/data_full_cleaned.parquet
+```
+
+Intermediate data files may also be created in the `data/` directory.
+
+## PostgreSQL Export
+
+The project always writes the cleaned dataset to parquet.
+
+If PostgreSQL is running locally, `clean_data.py` also attempts to export the cleaned dataset to PostgreSQL.
+
+Default local PostgreSQL connection:
+
+```text
+postgresql+psycopg2://postgres:postgres@localhost:5432/postgres
+```
+
+Default PostgreSQL table:
+
+```text
+galaxy_data_cleaned
+```
+
+To use a different database connection, set `DATABASE_URL` before running `clean_data.py`.
+
+Linux / macOS:
 
 ```bash
-cd src
-python evaluate_models.py
-cd ..
+export DATABASE_URL='postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/postgres'
 ```
 
-### Results
+Windows Command Prompt / Anaconda Prompt:
 
-Model evaluation outputs are saved in:
+```bat
+set "DATABASE_URL=postgresql+psycopg2://postgres:YOUR_PASSWORD@localhost:5432/postgres"
+```
+
+If PostgreSQL export fails, the parquet output is still saved.
+
+## Model Evaluation Outputs
+
+Supervised model results from `evaluate_models.py` are saved in:
 
 ```text
 results/
 ```
 
-Expected outputs:
+Expected supervised outputs:
 
 ```text
 results/model_comparison_results.csv
 results/logistic_regression_confusion_matrix.png
 results/gradient_boosting_confusion_matrix.png
+results/random_forest_confusion_matrix.png
 results/model_metric_comparison.png
 ```
+
+The supervised evaluation currently compares:
+
+```text
+Logistic Regression
+Gradient Boosting
+Random Forest
+```
+
+Metrics include:
+
+```text
+RMSE
+accuracy
+balanced accuracy
+precision
+recall
+F1 score
+confusion matrix
+```
+
+## Clustering Outputs
+
+Unsupervised clustering results from `cluster_analysis.py` are saved in:
+
+```text
+results/
+```
+
+Expected clustering outputs:
+
+```text
+results/kmeans_elbow_plot.png
+results/kmeans_pca_clusters.png
+results/kmeans_cluster_morphology_counts.csv
+results/kmeans_cluster_morphology_percentages.csv
+```
+
+The clustering analysis uses K-Means with `k=2` as the main comparison because the cleaned morphology labels are binary:
+
+```text
+spiral
+elliptical
+```
+
+The script also runs an elbow analysis over multiple `k` values to check whether the feature space suggests more than two natural clusters.
+
+## Optional Extra Cleaning
+
+`extra_clean.py` is an optional experimental script for applying additional filtering to the already-cleaned dataset.
+
+It is not part of the default pipeline.
+
+Only run it if you intentionally want to overwrite `data/data_full_cleaned.parquet` with a more aggressively filtered version.
+
+Default pipeline:
+
+```bash
+cd src
+python get_sdss_data.py
+python join_morph_sdss.py
+python clean_data.py
+python evaluate_models.py
+python cluster_analysis.py
+cd ..
+```
+
+Optional extra-cleaning flow:
+
+```bash
+cd src
+python clean_data.py
+python extra_clean.py
+python evaluate_models.py
+python cluster_analysis.py
+cd ..
+```
+
+## Description of Features in the Dataset
+
+- `objname`: name of the galaxy, if available.
+- `T`: numeric morphology value. More negative values indicate more elliptical galaxies, and more positive values indicate more spiral galaxies.
+- `morphology`: binary class label derived from `T`. Values are `spiral` or `ellipt`.
+- `ra`, `dec`: sky coordinates, right ascension and declination.
+- `sb50_r`: mean surface brightness in the central region of the galaxy.
+- `sb_conc_r`: surface brightness concentration.
+- `logdc`: log central surface brightness from HyperLEDA.
+- `bri25`: surface brightness along the outer edge of the galaxy.
+- `mabs`: absolute magnitude / intrinsic brightness. Higher values are fainter.
+- `*_color`: color features computed as differences between SDSS filter magnitudes.
+- `imputed_*`: indicator columns showing whether a value was imputed. A value of `1` means the original value was missing and imputed; `0` means the value was observed.
