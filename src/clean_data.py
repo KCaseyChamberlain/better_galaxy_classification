@@ -133,9 +133,7 @@ data['rz_color'] = data['r'] - data['z']
 data['iz_color'] = data['i'] - data['z']
 
 # calculate type
-spel = np.array(['spiral']*len(data['T']))
-spel[ data['T'] < 0. ] = 'elliptical'
-data['morphology'] = spel
+data["morphology"] = np.where(data["T"] < 0, "elliptical", "spiral")
 
 ###################
 # remove outliers #
