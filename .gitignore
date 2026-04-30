@@ -28,3 +28,4 @@ Thumbs.db
 # Data that's too big
 leda_raw.tsv
 archive/*.tsv
+data/dominguez_raw.tsv
